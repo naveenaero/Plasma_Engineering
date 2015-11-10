@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import interpolate
+import Interpolation as interp1d
 
 class Distribution:
 	def __init__(self, name, m):
@@ -51,8 +52,7 @@ class Distribution:
 		f = a1*a2;
 		return f
 
-	def get_distribution(self, temperature, variable):
-		self.set_temperature(temperature)
+	def get_distribution(self, variable):
 		if variable=='speed':
 			self.speed = np.linspace(0,3000,3000)
 			self.f_speed = np.zeros_like(self.speed)
@@ -144,20 +144,50 @@ class Distribution:
 			plt.title(variable)
 		else:
 			print "plotting error"
-			
-	def plot_characteristics(self):
-		return 0
+	
+
+	def compute_moments(self, a, b, variable, moment):
+		[weights, roots] = interp1d.compute_lgl_weights(interp1d.legendre_interp, interp1d.lobatto_interp)
+		if variable=='speed':
+			temp = (b-a)/2
+			integral = 0
+			new_x = roots*(b-a)/2 + (a+b)/2
+			for i in range(len(new_x)):
+				integral += weights[i]*self.speed_dist(new_x[i])*(new_x[i]**moment)
+			integral *= temp
+			if moment==2:
+				integral = integral*self.m/(3*self.n*self.k)
+				self.computed_temperature = integral
+				return integral
+			else:
+				self.computed_density = integral
+				return integral
+	
+	def compute_error_norms(self):
+		self.temperature_l2_err = abs(self.temperature - self.computed_temperature)/self.temperature
+		self.density_l2_err = abs(self.n - self.computed_density)/self.n
 
 
-def test_distribution_function():
+
+def test_distribution_function(plotter):
 	nitrogen = Distribution('nitrogen', m=4.64e-26)
-	temperature = [300,1000];
-	variable = 'energy'
+	temperature = [300];
+	variable = 'speed'
 	for T in temperature:
-		nitrogen.get_distribution(T, variable)
+		nitrogen.set_temperature(T)
+		nitrogen.get_distribution(variable)
 		nitrogen.get_characteristic_speeds(variable)
-		nitrogen.plot_distribution(variable)
-	plt.legend()
-	plt.show()
-test_distribution_function()
+		if variable=='speed':
+			print 0,'moment of speed = ', nitrogen.compute_moments(0, 3000, variable, 0)
+			print 2,'moment of speed = ', nitrogen.compute_moments(0, 3000, variable, 2), 'K'
+			nitrogen.compute_error_norms()
+			print 'error in numerical calculation of temperature: ', nitrogen.temperature_l2_err
+			print 'error in numerical calculation of density: ', nitrogen.density_l2_err
+		if plotter:
+			nitrogen.plot_distribution(variable)
+	if plotter:
+		plt.legend()
+		plt.show()
+
+test_distribution_function(False)
 
